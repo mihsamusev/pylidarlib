@@ -1,0 +1,11 @@
+name: pylidarlib
+dependencies:
+  - python=3.7
+  - pytest
+  - numpy
+  - dpkt
+  - scikit-image
+  - scikit-learn
+  - scipy
+channels:
+  - conda-forge  

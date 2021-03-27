@@ -1,0 +1,6 @@
+numpy
+pytest
+dpkt
+scikit-image
+scikit-learn
+scipy
