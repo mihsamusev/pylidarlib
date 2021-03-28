@@ -14,11 +14,6 @@ class PointCloud:
     def data(self):
         return self._data[:self.size]
 
-    @data.setter
-    def data(self, value):
-        self._data = value
-        self.size = self._data.shape[0]
-
     @property
     def xyz(self):
         return self._data[:self.size, :3]
@@ -38,12 +33,12 @@ class PointCloud:
         return out
 
     @staticmethod
-    def from_numpy(arr):
+    def from_numpy(arr, **kwargs):
         """
         Constructs a PointCloud using [N x 4] numpy array
         """
         if PointCloud.is_valid_numpy(arr):
-            pc = PointCloud()
+            pc = PointCloud(**kwargs)
             pc.extend(arr)
             return pc
         else:
@@ -56,18 +51,14 @@ class PointCloud:
         """
         next_size = self.size + arr.shape[0]
         if next_size > self.capacity:
-            self._add_capacity()
+            next_pow2 = np.ceil(np.log2(next_size))
+            self.capacity = int(np.power(2, next_pow2))
+            added_rows = self.capacity - self.size
+            self._data = np.vstack([self._data[:self.size, :], np.zeros((added_rows, 4))])
+        
         self._data[self.size:next_size, :] = arr
         self.size = next_size
 
-    def _add_capacity(self):
-        """
-        Increase the capacity by doubling the size of the _data array
-        """
-        self.capacity *= 2
-        self._data = np.vstack([self._data, np.zeros_like(self._data)])
-
     def shrink(self):
         self.capacity = self.size
-        self._data = self._data[:self.size,:]
-
+        self._data = self._data[:self.size, :]
