@@ -54,8 +54,11 @@ class PointCloud:
             next_pow2 = np.ceil(np.log2(next_size))
             self.capacity = int(np.power(2, next_pow2))
             added_rows = self.capacity - self.size
-            self._data = np.vstack([self._data[:self.size, :], np.zeros((added_rows, 4))])
-        
+            self._data = np.vstack([
+                self._data[:self.size, :],
+                np.zeros((added_rows, 4))
+            ])
+
         self._data[self.size:next_size, :] = arr
         self.size = next_size
 

@@ -89,13 +89,13 @@ class TestDataObjects(unittest.TestCase):
         self.assertEqual(pc.capacity, 16)
         self.assertEqual(pc.size, 15)
 
-        #past 2x capacity
+        # past 2x capacity
         data_chunk = np.random.rand(30, 4)
         pc = PointCloud.from_numpy(data_chunk)
         self.assertEqual(pc.capacity, 32)
         self.assertEqual(pc.size, 30)
-        
-        #past 2x capacity with any non default capacity
+
+        # past 2x capacity with any non default capacity
         data_chunk = np.random.rand(30, 4)
         pc = PointCloud.from_numpy(data_chunk, capacity=7)
         self.assertEqual(pc.capacity, 32)
@@ -104,6 +104,7 @@ class TestDataObjects(unittest.TestCase):
         expected_data = np.zeros((32, 4))
         expected_data[:30, :] = data_chunk
         np.testing.assert_array_equal(pc._data, expected_data)
+
 
 if __name__ == '__main__':
     unittest.main()
