@@ -44,9 +44,8 @@ python -m pytest
 Reproduce the data processing convert our data from `.pcap` to a list 
 of `.bin` with the coordinate system compatiable with KITTI datset
 
-- Extract clouds from `.pcap`
-- Get list of clouds (extensible to a queue/stream/buffer of clouds)
-- Apply filters to the entire datastructure of clouds
-- Get list of clouds (shoud it change in place or copy?)
-- Save new clouds to `.bin`
+- [] Extract clouds from `.pcap`
+- [] Apply filters to the entire datastructure of clouds
+- [x] Basic cloud transformations to prepare data for kitty
+- [] Save new clouds to `.bin`
 

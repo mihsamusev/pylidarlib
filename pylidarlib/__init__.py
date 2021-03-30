@@ -1,2 +1,2 @@
 # flake8: noqa
-from pylidarlib.dataobjects import PointCloud
+from pylidarlib.dataobjects import *

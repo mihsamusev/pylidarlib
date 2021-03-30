@@ -45,7 +45,7 @@ class TestTransforms(unittest.TestCase):
 
         # only 1 dim
         pc = PointCloud.from_numpy(data)
-        clipper = T.CartesianClipper(
+        clipper = T.CartesianClip(
             x_range=[-1.0, 1.0]
         )
         pc_test = clipper.apply(pc)
@@ -54,7 +54,7 @@ class TestTransforms(unittest.TestCase):
 
         # 2 dim
         pc = PointCloud.from_numpy(data)
-        clipper = T.CartesianClipper(
+        clipper = T.CartesianClip(
             x_range=[-1.0, 1.5],
             z_range=[-1.0, 1.0]
         )
@@ -64,7 +64,7 @@ class TestTransforms(unittest.TestCase):
 
         # 2dim inverse
         pc = PointCloud.from_numpy(data)
-        clipper = T.CartesianClipper(
+        clipper = T.CartesianClip(
             x_range=[-1.0, 1.5],
             z_range=[-1.0, 1.0],
             inverse=True
@@ -82,7 +82,7 @@ class TestTransforms(unittest.TestCase):
 
         # only 1 dim
         pc = PointCloud.from_numpy(data)
-        clipper = T.CartesianClipper(
+        clipper = T.CartesianClip(
             inverse=True
         )
         pc_test = clipper.apply(pc)
@@ -97,15 +97,102 @@ class TestTransforms(unittest.TestCase):
             [-1, 1, 0, 1],
         ])
         pc = PointCloud.from_numpy(data)
+
         # rotate 30 degrees around Z
         rotator = T.AxisRotate(
-            axis=[0, 0, 1],
-            angle=np.pi / 6)
+            axis=[0.0, 0.0, 1.0],
+            angle=np.pi / 6
+        )
         pc = rotator.apply(pc)
         expected = np.asarray([
-            [-1.3660254, -0.3660254, 0.0, 1.0],
-            [0.3660254, -1.3660254, 0.0, 1.0],
-            [1.3660254,  0.3660254, 0.0, 1.0],
-            [-0.3660254,  1.3660254, 0.0, 1.0]
+            [-0.3660254, -1.3660254, 0.0, 1.0],
+            [1.3660254, -0.3660254, 0.0, 1.0],
+            [0.3660254, 1.3660254, 0.0, 1.0],
+            [-1.3660254, 0.3660254, 0.0, 1.0]
         ])
-        np.testing.assert_array_equal(pc.data, expected)
+        np.testing.assert_array_almost_equal(pc.data, expected)
+
+        # rotate 30 degrees, axis not normalized
+        pc = PointCloud.from_numpy(data)
+        rotator = T.AxisRotate(
+            axis=[0.0, 0.0, 1.1],
+            angle=np.pi / 6
+        )
+        pc = rotator.apply(pc)
+        np.testing.assert_array_almost_equal(pc.data, expected)
+
+    def test_rotate_translate_compose(self):
+        data = np.asarray([
+            [0, 0, 2, 1],
+            [2, 0, 2, 1],
+            [2, 2, 2, 1],
+            [0, 2, 2, 1],
+        ])
+        pc = PointCloud.from_numpy(data)
+        pipe = T.Compose([
+            T.Translate(0, 0, -2),
+            T.AxisRotate([1, 0, 0], np.pi / 2)
+        ])
+        pc = pipe.apply(pc)
+        expected = np.asarray([
+            [0.0, 0.0, 0.0, 1.0],
+            [2.0, 0.0, 0.0, 1.0],
+            [2.0, 0.0, 2.0, 1.0],
+            [0.0, 0.0, 2.0, 1.0]
+        ])
+        np.testing.assert_array_almost_equal(pc.data, expected)
+
+    def test_polygon_clipper(self):
+        data = np.asarray([
+            [-1, -1, 1, 1],
+            [1, -1, 2, 1],
+            [1, 1, 3, 1],
+            [-1, 1, 4, 1],
+        ])
+        # positive clipper given 2d list
+        pc = PointCloud.from_numpy(data)
+        poly = [
+            [-2, -2],
+            [0, -2],
+            [0, 0],
+            [2, 0],
+            [2, 2],
+            [-2, 2],
+        ]
+        clipper = T.PolygonClip(
+            polygon=poly
+        )
+        pc = clipper.apply(pc)
+        self.assertEqual(pc.size, 3)
+        np.testing.assert_array_equal(pc.data, data[[0,2,3], :])
+
+        # inverse clipper given 2d list
+        pc = PointCloud.from_numpy(data)
+        clipper = T.PolygonClip(
+            polygon=poly,
+            inverse=True
+        )
+        pc = clipper.apply(pc)
+        self.assertEqual(pc.size, 1)
+        np.testing.assert_array_equal(pc.data, data[[1], :])
+
+        # positive clipper given z_range
+        pc = PointCloud.from_numpy(data)
+        clipper = T.PolygonClip(
+            polygon=poly,
+            z_range=[2, 5],
+        )
+        pc = clipper.apply(pc)
+        self.assertEqual(pc.size, 2)
+        np.testing.assert_array_equal(pc.data, data[[2,3], :])
+
+        # poly as numpy array
+        poly = np.asarray(poly)
+        pc = PointCloud.from_numpy(data)
+        clipper = T.PolygonClip(
+            polygon=poly,
+            z_range=[2, 5],
+        )
+        pc = clipper.apply(pc)
+        self.assertEqual(pc.size, 2)
+        np.testing.assert_array_equal(pc.data, data[[2,3], :])
