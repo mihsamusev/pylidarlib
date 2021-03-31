@@ -1,29 +1,59 @@
 # -*- coding: utf-8 -*-
 import unittest
-import os
 import itertools
 import numpy as np
 
+from pylidarlib import PointCloud
 from pylidarlib.io import HDL32e
 from test.testdoubles import HDL32ePcapDouble
+
+np.random.seed(seed=42)
 
 
 class TestHDL32PcapIO(unittest.TestCase):
     """Test cases for readers / writters
     """
     def setUp(self):
-        np.random.seed(seed=42)
-        azimuths = np.array([
-            356.5, 357.5, 358.5, 359.5,
-            1.5, 2.5, 3.5, 4.5,
-            5.5, 6.5, 7.5, 8.5
+        """
+        Generate lidar data at different levels
+        """
+        self.test_azi_1rot = self._get_azimuth_block_single_rotation()
+        self.test_azi_2rot = self._get_azimuth_block_double_rotation()
+        self.test_elev = self._get_elevations_block()
+        self.test_dist, self.test_intens = self._get_random_dist_and_intens()
+        self.test_packet1 = HDL32ePcapDouble.build_single_return_packet(
+            self.test_azi_1rot, self.test_dist, self.test_intens
+        )
+        self.test_packet2 = HDL32ePcapDouble.build_single_return_packet(
+            self.test_azi_2rot, self.test_dist, self.test_intens
+        )
+        self.test_numpy_block_1rot = np.dstack([
+            self.test_azi_1rot,
+            self.test_elev,
+            self.test_dist,
+            self.test_intens
         ])
-        self.azimuths = np.repeat(azimuths, 32).reshape(12, 32)
-        max_dist = 70
-        self.distances = 70 * np.random.random((12, 32))
-        self.intensities = np.random.randint(0, 100, (12, 32))
-        
-        self.elevations = np.asarray([
+        self.test_numpy_block_2rot = np.dstack([
+            self.test_azi_2rot,
+            self.test_elev,
+            self.test_dist,
+            self.test_intens
+        ])
+        self.test_xyzi_block_1rot = self._get_xyzi_datablock(
+            self.test_azi_1rot,
+            self.test_elev,
+            self.test_dist,
+            self.test_intens
+        )
+        self.test_xyzi_block_2rot = self._get_xyzi_datablock(
+            self.test_azi_2rot,
+            self.test_elev,
+            self.test_dist,
+            self.test_intens
+        )
+
+    def _get_elevations_block(self):
+        elevations = np.asarray([
             -30.67, -9.33, -29.33, -8.00, -28.00, -6.66,
             -26.66, -5.33, -25.33, -4.00, -24.00, -2.67,
             -22.67, -1.33, -21.33, 0.00, -20.00, 1.33,
@@ -31,74 +61,167 @@ class TestHDL32PcapIO(unittest.TestCase):
             -14.67, 6.67, -13.33, 8.00, -12.00, 9.33,
             -10.67, 10.67
         ])
-        reader = HDL32ePcapDouble()
-        self.test_packet = reader.get_single_return_packet(
-            azi=self.azimuths,
-            dist=self.distances,
-            intens=self.intensities
-        )
+        return np.repeat(elevations, 12).reshape(32, 12).T
 
-    def test_HDL32e_pcap_packet_parser(self):      
-        payload = self.test_packet[42:] # remove header
+    def _get_azimuth_block_single_rotation(self):
+        azimuths = np.array([
+            345.5, 346.5, 347.5, 348.5,
+            349.5, 350.5, 351.5, 352.5,
+            353.5, 354.5, 355.5, 356.5
+        ])
+        return np.repeat(azimuths, 32).reshape(12, 32)
+
+    def _get_azimuth_block_double_rotation(self):
+        azimuths = np.array([
+            356.5, 357.5, 358.5, 359.5,
+            1.5, 2.5, 3.5, 4.5,
+            5.5, 6.5, 7.5, 8.5
+        ])
+        return np.repeat(azimuths, 32).reshape(12, 32)
+
+    def _get_random_dist_and_intens(self):
+        """
+        generates (12, 32) arrays for each
+        azimuth, elevations, distances, intesities
+        """
+        distances = 70 * np.random.random((12, 32))
+        intensities = np.random.randint(0, 100, (12, 32))
+        return distances, intensities
+
+    def _get_xyzi_datablock(self, azi, elev, dist, intens):
+        """
+        Returns (12, 32, 4) array where for each 12 firngs
+        there is a (32, 4) array with cartiesian coordinates
+        and intensity
+        """
+        azi_rad = np.deg2rad(azi)
+        ele_rad = np.deg2rad(elev)
+        rcos_ele = dist * np.cos(ele_rad)
+        xyzi = np.dstack([
+            rcos_ele * np.sin(azi_rad),
+            rcos_ele * np.cos(azi_rad),
+            dist * np.sin(ele_rad),
+            intens
+        ])
+        return xyzi
+
+    def test_HDL32e_pcap_packet_parser(self):
+        payload = self.test_packet1[42:]  # remove header
         p_azi, p_dist, p_intens = HDL32e.parse_data_packet(payload)
 
         np.testing.assert_array_equal(
-            p_azi, self.azimuths)
+            p_azi, self.test_azi_1rot)
         np.testing.assert_array_almost_equal(
-            p_dist, self.distances, decimal=2) # due to conversion
+            p_dist, self.test_dist, decimal=2)
         np.testing.assert_array_equal(
-            p_intens, self.intensities)
+            p_intens, self.test_intens)
 
     def test_HDL32e_pcap_firing_generator(self):
-        payload = self.test_packet[42:] # remove header
-        
+        payload = self.test_packet1[42:]  # remove header
         firings = HDL32e.yield_firings(payload)
-        index = 8 # firing at this index is tested
+        index = 8  # firing at this index is tested
         f = next(itertools.islice(firings, index, None))
 
         np.testing.assert_array_equal(
-            f.azimuth, self.azimuths[index, :])
+            f.azimuth, self.test_azi_1rot[index, :])
         np.testing.assert_array_almost_equal(
-            f.distance, self.distances[index, :], decimal=2) # due to conversion
+            f.distance, self.test_dist[index, :], decimal=2)
         np.testing.assert_array_equal(
-            f.intensity, self.intensities[index, :])
+            f.intensity, self.test_intens[index, :])
         np.testing.assert_array_equal(
-            f.elevation, self.elevations)
+            f.elevation, self.test_elev[index, :])
 
     def test_HDL32e_LaserFiring_to_numpy(self):
-        payload = self.test_packet[42:]
+        payload = self.test_packet1[42:]  # remove header
+
         firings = HDL32e.yield_firings(payload)
-        index = 8 # firing at this index is tested
+        index = 8  # firing at this index is tested
         f = next(itertools.islice(firings, index, None))
         farray = f.to_numpy()
 
-        expected = np.vstack([
-            self.azimuths[index, :],
-            self.elevations,
-            self.distances[index, :],
-            self.intensities[index, :]
-        ]).T
+        expected = self.test_numpy_block_1rot[index]
         np.testing.assert_array_almost_equal(
-            farray, expected, decimal=2)
+            farray, expected, decimal=2
+        )
 
     def test_HDL32e_LaserFiring_xyzi_property(self):
-        payload = self.test_packet[42:]
+        payload = self.test_packet1[42:]  # remove header
         firings = HDL32e.yield_firings(payload)
-        index = 8 # firing at this index is tested
+        index = 8  # firing at this index is tested
         f = next(itertools.islice(firings, index, None))
- 
-        azi_rad = np.deg2rad(self.azimuths[index, :])
-        ele_rad = np.deg2rad(self.elevations)
-        rcos_ele = self.distances[index, :] * np.cos(ele_rad)
-        
-        expected_xyzi = np.vstack([
-            rcos_ele * np.sin(azi_rad),
-            rcos_ele * np.cos(azi_rad),
-            self.distances[index, :] * np.sin(ele_rad),
-            self.intensities[index, :]
-        ]).T
+
+        expected = self.test_xyzi_block_1rot[index]
         np.testing.assert_array_almost_equal(
-            f.xyzi, expected_xyzi, decimal=2)
+            f.xyzi, expected, decimal=2
+        )
 
     def test_PointCloud_creation_by_accum_of_HDL32e_firings(self):
-        pass
+        payload = self.test_packet1[42:]
+        firings = HDL32e.yield_firings(payload)
+        pc = PointCloud()
+        for f in firings:
+            pc.extend(f.xyzi)
+
+        self.assertEqual(pc.size, 12 * 32)
+        expected = self.test_xyzi_block_1rot.reshape(12 * 32, 4)
+        np.testing.assert_array_almost_equal(
+            pc.data, expected, decimal=2
+        )
+
+    def test_HDL32e_pcap_count_rotations(self):
+        # acts as a mock to dpkt.pcap.Reader generator
+        packets = [
+            ("timestamp1", self.test_packet1),
+            ("timestamp2", self.test_packet2)
+        ]
+        packet_stream = (p for p in packets)
+
+        # standard, new rotation after going over 0
+        r = HDL32e.count_rotations(packet_stream)
+        self.assertEqual(r, 2)
+
+        # clouds spilt, new rotation after going over start_angle
+        packet_stream = (p for p in packets)
+        r = HDL32e.count_rotations(packet_stream, start_angle=300)
+        self.assertEqual(r, 1)
+
+    def test_HDL32e_pcap_yield_clouds(self):
+        # acts as a mock to dpkt.pcap.Reader generator
+        packets = [
+            ("timestamp1", self.test_packet1),
+            ("timestamp2", self.test_packet2)
+        ]
+        
+        # standart start_angle
+        packet_stream = (p for p in packets)
+
+        clouds = []
+        cloud_gen = HDL32e.yield_clouds(packet_stream)
+        for c in cloud_gen:
+            clouds.append(c)
+
+        self.assertEqual(len(clouds), 2)
+
+        expected1 = self.test_xyzi_block_1rot.reshape(12 * 32, 4)
+        expected2 = self.test_xyzi_block_2rot.reshape(12 * 32, 4)
+        expected = np.vstack([expected1, expected2])
+        split_idx = (12 + 4) * 32
+        expected_pc1 = expected[:split_idx, :]
+        np.testing.assert_array_almost_equal(
+            clouds[0].data, expected_pc1, decimal=2)
+        expected_pc2 = expected[split_idx:,:]
+        np.testing.assert_array_almost_equal(
+            clouds[1].data, expected_pc2, decimal=2)
+
+        # custom start_angle
+        packet_stream = (p for p in packets)
+
+        clouds = []
+        cloud_gen = HDL32e.yield_clouds(packet_stream, start_angle=300)
+        for c in cloud_gen:
+            clouds.append(c)
+
+        self.assertEqual(len(clouds), 1)
+        np.testing.assert_array_almost_equal(
+            clouds[0].data, expected, decimal=2)
+  

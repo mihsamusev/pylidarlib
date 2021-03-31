@@ -1,4 +1,5 @@
 import numpy as np
+from pylidarlib import PointCloud
 
 
 class HDL32e:
@@ -9,7 +10,7 @@ class HDL32e:
         timestamp(uint),
         azimuth(uint) * 100,
         32x[distance(uint) * 500, intensity(byte)]
-    ] 
+    ]
     4 byte timestamp, 2 byte factory
     """
     LASERS = 32
@@ -31,10 +32,10 @@ class HDL32e:
     DISTANCE_RES = 0.002
     HEADER_SIZE = 42
 
-
     @staticmethod
     def parse_data_packet(buffer):
         """
+        Parses HDL32e strongest return mode data packet
         Fast parsing from
         # https://stackoverflow.com/questions/36797088/speed-up-pythons-struct-unpakc
         using details of np.ndarray(
@@ -49,17 +50,21 @@ class HDL32e:
             (HDL32e.BLOCKS,), np.uint16, buffer, 2, (100, )
         ) * HDL32e.AZIMUTH_RES
         azimuth = np.repeat(azimuth, 32).reshape(12, 32)
-        
+
         distance = np.ndarray(
             (HDL32e.BLOCKS, HDL32e.LASERS), np.uint16, buffer, 4, (100, 3)
         ) * HDL32e.DISTANCE_RES
-        
+
         intensity = np.ndarray(
             (HDL32e.BLOCKS, HDL32e.LASERS), np.uint8, buffer, 6, (100, 3))
         return azimuth, distance, intensity
 
     @staticmethod
     def yield_firings(buffer):
+        """
+        Generator for HDL32e lidar firings from data packets
+        Only supports strongest return mode
+        """
         azimuth, distance, intensity = HDL32e.parse_data_packet(buffer)
         for i in range(HDL32e.BLOCKS):
             firing = HDL32eLaserFiring(
@@ -68,6 +73,57 @@ class HDL32e:
                     intensity[i, :]
                 )
             yield firing
+
+    def yield_clouds(packet_stream, start_angle=0):
+        """
+        Generator for point clouds from HDL32e pcap data
+        packet stream
+        """
+        prev_azi = 0
+        pc = PointCloud()
+
+        for _, packet in packet_stream:
+            if len(packet) != 1248:
+                continue
+
+            for firing in HDL32e.yield_firings(packet[42:]):
+                wrapped_azi = (firing.azimuth[0] - start_angle) % 360
+                print(prev_azi, wrapped_azi, firing.azimuth[0])
+                if prev_azi > wrapped_azi:
+                    yield pc
+                    pc = PointCloud()
+
+                pc.extend(firing.xyzi)
+                prev_azi = wrapped_azi
+        yield pc
+
+    @staticmethod
+    def count_rotations(packet_stream, start_angle=0):
+        """
+        Counts full rotations (number of point clouds)
+        of a HDL32e rounded up
+        Can start from arbitrary angle, accounts for
+        new rotation starting both within packet but also
+        from one packet to another
+        """
+        count = 1
+        start_angle *= 100
+        prev_max_azi = 0
+
+        for _, packet in packet_stream:
+            if len(packet) != 1248:
+                continue
+            # use same binary parsing as in parse_data_packet()
+            azi_0, azi_11 = np.ndarray(
+                (2,), np.uint16, packet, 42+2, (1100,))
+            min_azi = (azi_0 - start_angle) % 36000
+            max_azi = (azi_11 - start_angle) % 36000
+
+            if (max_azi < min_azi or prev_max_azi > min_azi):
+                count += 1
+            prev_max_azi = max_azi
+
+        return count
 
 
 class HDL32eLaserFiring:

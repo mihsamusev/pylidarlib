@@ -164,7 +164,7 @@ class TestTransforms(unittest.TestCase):
         )
         pc = clipper.apply(pc)
         self.assertEqual(pc.size, 3)
-        np.testing.assert_array_equal(pc.data, data[[0,2,3], :])
+        np.testing.assert_array_equal(pc.data, data[[0, 2, 3], :])
 
         # inverse clipper given 2d list
         pc = PointCloud.from_numpy(data)
@@ -184,7 +184,7 @@ class TestTransforms(unittest.TestCase):
         )
         pc = clipper.apply(pc)
         self.assertEqual(pc.size, 2)
-        np.testing.assert_array_equal(pc.data, data[[2,3], :])
+        np.testing.assert_array_equal(pc.data, data[[2, 3], :])
 
         # poly as numpy array
         poly = np.asarray(poly)
@@ -195,4 +195,4 @@ class TestTransforms(unittest.TestCase):
         )
         pc = clipper.apply(pc)
         self.assertEqual(pc.size, 2)
-        np.testing.assert_array_equal(pc.data, data[[2,3], :])
+        np.testing.assert_array_equal(pc.data, data[[2, 3], :])
