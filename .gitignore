@@ -130,4 +130,5 @@ dmypy.json
 
 .vscode
 pylidarlib/__pycache__
-tests/__pycache__
+test/__pycache__
+test/local

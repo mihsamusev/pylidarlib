@@ -1,3 +1,5 @@
+import os
+os.environ['NUMPY_EXPERIMENTAL_ARRAY_FUNCTION'] = '0'
 import numpy as np
 
 
@@ -5,7 +7,7 @@ class PointCloud:
     """
     Point could containing XYZI data
     """
-    def __init__(self, capacity=10):
+    def __init__(self, capacity=32768):
         self.capacity = capacity
         self.size = 0
         self._data = np.zeros((self.capacity, 4))
@@ -53,11 +55,10 @@ class PointCloud:
         if next_size > self.capacity:
             next_pow2 = np.ceil(np.log2(next_size))
             self.capacity = int(np.power(2, next_pow2))
-            added_rows = self.capacity - self.size
-            self._data = np.vstack([
-                self._data[:self.size, :],
-                np.zeros((added_rows, 4))
-            ])
+
+            extended_data = np.zeros((self.capacity, 4))
+            extended_data[:self.size, :] = self.data
+            self._data = extended_data
 
         self._data[self.size:next_size, :] = arr
         self.size = next_size

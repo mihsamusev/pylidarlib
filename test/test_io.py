@@ -128,45 +128,6 @@ class TestHDL32PcapIO(unittest.TestCase):
             f.distance, self.test_dist[index, :], decimal=2)
         np.testing.assert_array_equal(
             f.intensity, self.test_intens[index, :])
-        np.testing.assert_array_equal(
-            f.elevation, self.test_elev[index, :])
-
-    def test_HDL32e_LaserFiring_to_numpy(self):
-        payload = self.test_packet1[42:]  # remove header
-
-        firings = HDL32e.yield_firings(payload)
-        index = 8  # firing at this index is tested
-        f = next(itertools.islice(firings, index, None))
-        farray = f.to_numpy()
-
-        expected = self.test_numpy_block_1rot[index]
-        np.testing.assert_array_almost_equal(
-            farray, expected, decimal=2
-        )
-
-    def test_HDL32e_LaserFiring_xyzi_property(self):
-        payload = self.test_packet1[42:]  # remove header
-        firings = HDL32e.yield_firings(payload)
-        index = 8  # firing at this index is tested
-        f = next(itertools.islice(firings, index, None))
-
-        expected = self.test_xyzi_block_1rot[index]
-        np.testing.assert_array_almost_equal(
-            f.xyzi, expected, decimal=2
-        )
-
-    def test_PointCloud_creation_by_accum_of_HDL32e_firings(self):
-        payload = self.test_packet1[42:]
-        firings = HDL32e.yield_firings(payload)
-        pc = PointCloud()
-        for f in firings:
-            pc.extend(f.xyzi)
-
-        self.assertEqual(pc.size, 12 * 32)
-        expected = self.test_xyzi_block_1rot.reshape(12 * 32, 4)
-        np.testing.assert_array_almost_equal(
-            pc.data, expected, decimal=2
-        )
 
     def test_HDL32e_pcap_count_rotations(self):
         # acts as a mock to dpkt.pcap.Reader generator
@@ -176,14 +137,8 @@ class TestHDL32PcapIO(unittest.TestCase):
         ]
         packet_stream = (p for p in packets)
 
-        # standard, new rotation after going over 0
         r = HDL32e.count_rotations(packet_stream)
         self.assertEqual(r, 2)
-
-        # clouds spilt, new rotation after going over start_angle
-        packet_stream = (p for p in packets)
-        r = HDL32e.count_rotations(packet_stream, start_angle=300)
-        self.assertEqual(r, 1)
 
     def test_HDL32e_pcap_yield_clouds(self):
         # acts as a mock to dpkt.pcap.Reader generator
@@ -201,6 +156,8 @@ class TestHDL32PcapIO(unittest.TestCase):
             clouds.append(c)
 
         self.assertEqual(len(clouds), 2)
+        self.assertEqual(clouds[0].size, 16 * 32)
+        self.assertEqual(clouds[1].size, 8 * 32)
 
         expected1 = self.test_xyzi_block_1rot.reshape(12 * 32, 4)
         expected2 = self.test_xyzi_block_2rot.reshape(12 * 32, 4)
@@ -212,16 +169,4 @@ class TestHDL32PcapIO(unittest.TestCase):
         expected_pc2 = expected[split_idx:,:]
         np.testing.assert_array_almost_equal(
             clouds[1].data, expected_pc2, decimal=2)
-
-        # custom start_angle
-        packet_stream = (p for p in packets)
-
-        clouds = []
-        cloud_gen = HDL32e.yield_clouds(packet_stream, start_angle=300)
-        for c in cloud_gen:
-            clouds.append(c)
-
-        self.assertEqual(len(clouds), 1)
-        np.testing.assert_array_almost_equal(
-            clouds[0].data, expected, decimal=2)
   

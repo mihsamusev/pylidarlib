@@ -85,19 +85,13 @@ class TestDataObjects(unittest.TestCase):
     def test_cloud_construct_from_numpy_past_capacity(self):
         # past 1x capacity
         data_chunk = np.random.rand(15, 4)
-        pc = PointCloud.from_numpy(data_chunk)
+        pc = PointCloud.from_numpy(data_chunk, capacity=10)
         self.assertEqual(pc.capacity, 16)
         self.assertEqual(pc.size, 15)
 
         # past 2x capacity
         data_chunk = np.random.rand(30, 4)
-        pc = PointCloud.from_numpy(data_chunk)
-        self.assertEqual(pc.capacity, 32)
-        self.assertEqual(pc.size, 30)
-
-        # past 2x capacity with any non default capacity
-        data_chunk = np.random.rand(30, 4)
-        pc = PointCloud.from_numpy(data_chunk, capacity=7)
+        pc = PointCloud.from_numpy(data_chunk, capacity=10)
         self.assertEqual(pc.capacity, 32)
         self.assertEqual(pc.size, 30)
 
