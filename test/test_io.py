@@ -83,8 +83,9 @@ class TestHDL32PcapIO(unittest.TestCase):
         """
         generates (12, 32) arrays for each
         azimuth, elevations, distances, intesities
+        only nonzero distances unlike real-lidar
         """
-        distances = 70 * np.random.random((12, 32))
+        distances = np.random.randint(1, 70, (12, 32))
         intensities = np.random.randint(0, 100, (12, 32))
         return distances, intensities
 
@@ -140,6 +141,18 @@ class TestHDL32PcapIO(unittest.TestCase):
         r = HDL32e.count_rotations(packet_stream)
         self.assertEqual(r, 2)
 
+    def test_HDL32e_firings_to_xyzi(self):
+        payload = self.test_packet1[42:]
+        firings = HDL32e.yield_firings(payload)
+        firings_list = [f for f in firings]
+        xyzi = HDL32e.firings_to_xyzi(firings_list)
+
+        self.assertEqual(xyzi.shape[0], 12 * 32)
+        expected = self.test_xyzi_block_1rot.reshape((12 * 32, 4))
+        np.testing.assert_array_almost_equal(
+            xyzi, expected, decimal=2
+        )
+
     def test_HDL32e_pcap_yield_clouds(self):
         # acts as a mock to dpkt.pcap.Reader generator
         packets = [
@@ -169,4 +182,41 @@ class TestHDL32PcapIO(unittest.TestCase):
         expected_pc2 = expected[split_idx:,:]
         np.testing.assert_array_almost_equal(
             clouds[1].data, expected_pc2, decimal=2)
-  
+
+        self.assertTrue(
+            np.all(np.count_nonzero(clouds[0].xyz, axis=1)))
+        self.assertTrue(
+            np.all(np.count_nonzero(clouds[1].xyz, axis=1)))
+
+    def test_HDL32e_pcap_yield_clouds_without_zeros(self):
+        test_dist_w_zeros = self.test_dist
+        rand_column = np.random.randint(0, 32, 3)
+        
+        test_dist_w_zeros[0, rand_column] = np.zeros(3)
+        test_dist_w_zeros[3, rand_column] = np.zeros(3)
+        test_dist_w_zeros[4, rand_column] = np.zeros(3)
+        test_dist_w_zeros[11,rand_column] = np.zeros(3)
+
+        test_packet1 = HDL32ePcapDouble.build_single_return_packet(
+            self.test_azi_1rot, test_dist_w_zeros, self.test_intens
+        )
+        test_packet2 = HDL32ePcapDouble.build_single_return_packet(
+            self.test_azi_2rot, test_dist_w_zeros, self.test_intens
+        )
+        
+        # acts as a mock to dpkt.pcap.Reader generator
+        packets = [
+            ("timestamp1", test_packet1),
+            ("timestamp2", test_packet2)
+        ]
+        
+        # standart start_angle
+        packet_stream = (p for p in packets)
+        clouds = []
+        cloud_gen = HDL32e.yield_clouds(packet_stream)
+        for c in cloud_gen:
+            clouds.append(c)
+
+        self.assertEqual(len(clouds), 2)
+        self.assertEqual(clouds[0].size, 10 * 32 + 6 * 29)
+        self.assertEqual(clouds[1].size, 6 * 32 + 2 * 29)

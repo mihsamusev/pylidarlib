@@ -8,6 +8,30 @@ Backend for `pylidartracker` project
 See which OS and Python versions combinations are supported [here](https://github.com/mihsamusev/pylidarlib/actions).
 
 ## Getting started
+
+### Quick demo - PCAP to KITTI format
+Convert your `.pcap` file collected with Velodyne HDL32e to KITTI compatiable format. Useful for using your date with one of the KITTI benchmark algorithms for 3D object detection /segmentation.
+
+```python
+import dpkt
+from pylidarlib.io import HDL32e
+import pylidarlib.transforms as PT
+
+# compose a transformation pipeline PyTorch style
+pipeline = PT.Compose([
+    PT.AxisRotate(),
+    PT.Clip()
+])
+
+with open("file.pcap", "r") as fin:
+    packet_stream = dpkt.pcap.Reader(fin)
+    pc_generator = HDL32e.yield_clouds(packet_stream)
+    for pc in pc_generator:
+        pc = pipeline.apply(pc)
+        pc.serialize(f"00001.bin")
+```
+
+## Installation
 0) Optionally create an environnment
 ```sh
 # conda
@@ -40,12 +64,4 @@ pip install -e .
 python -m pytest
 ```
 
-## First goal
-Reproduce the data processing convert our data from `.pcap` to a list 
-of `.bin` with the coordinate system compatiable with KITTI datset
-
-- [] Extract clouds from `.pcap`
-- [] Apply filters to the entire datastructure of clouds
-- [x] Basic cloud transformations to prepare data for kitty
-- [] Save new clouds to `.bin`
 

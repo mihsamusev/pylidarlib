@@ -94,6 +94,7 @@ class HDL32e:
             for firing in HDL32e.yield_firings(packet[42:]):
                 if prev_azi > firing.azimuth[0]:
                     xyzi = HDL32e.firings_to_xyzi(firings_buffer)
+                    xyzi = xyzi[np.where(np.count_nonzero(xyzi[:, :3], axis=1))]
                     pc = PointCloud.from_numpy(xyzi)
                     firings_buffer = []
                     yield pc
@@ -102,6 +103,7 @@ class HDL32e:
                 prev_azi = firing.azimuth[0]
         
         xyzi = HDL32e.firings_to_xyzi(firings_buffer)
+        xyzi = xyzi[np.where(np.count_nonzero(xyzi[:, :3], axis=1))]
         pc = PointCloud.from_numpy(xyzi)
         yield pc
 
