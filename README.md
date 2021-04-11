@@ -3,7 +3,7 @@ Utilities for LIDAR data reading and transformation
 
 ## Repo status
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/mihsamusev/pylidarlib)
-[![badge](https://github.com/mihsamusev/pylidarlib/workflows/build/badge.svg)](https://github.com/mihsamusev/pylidarlib/actions)
+[![build-and-test-crossplatform](https://github.com/mihsamusev/pylidarlib/actions/workflows/build.yml/badge.svg)](https://github.com/mihsamusev/pylidarlib/actions/workflows/build.yml)
 
 See which OS and Python versions combinations are supported [here](https://github.com/mihsamusev/pylidarlib/actions).
 
