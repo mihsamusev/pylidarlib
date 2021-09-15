@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
-from pylidarlib import PointCloud
+from pylidarlib import PointCloud, RangeImage
 import numpy as np
 
 
@@ -8,7 +8,7 @@ class TestDataObjects(unittest.TestCase):
     """Test cases for dataobjects.py
     """
 
-    def test_cloud_construction(self):
+    def test_empty_cloud_construction(self):
         pc = PointCloud()
         np.testing.assert_array_equal(pc.data, np.zeros((pc.size, 4)))
         np.testing.assert_array_equal(pc.xyz, np.zeros((pc.size, 3)))
@@ -99,6 +99,16 @@ class TestDataObjects(unittest.TestCase):
         expected_data[:30, :] = data_chunk
         np.testing.assert_array_equal(pc._data, expected_data)
 
+    def test_empty_rangeimage_construction(self):
+        ri = RangeImage()
+        np.testing.assert_array_equal(ri.data, np.zeros((ri.size, 4)))
+        np.testing.assert_array_equal(ri.radius, np.zeros((ri.size, 1)))
+        np.testing.assert_array_equal(ri.azimuth, np.zeros((ri.size, 1)))
+        np.testing.assert_array_equal(ri.elevation, np.zeros((ri.size, 1)))
+        np.testing.assert_array_equal(ri.intensity, np.zeros((ri.size, 1)))
+
+        ri = RangeImage(capacity=55)
+        self.assertEqual(ri.capacity, 55)
 
 if __name__ == '__main__':
     unittest.main()
