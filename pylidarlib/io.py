@@ -1,5 +1,22 @@
+from dataclasses import dataclass
+from typing import List, Tuple, Iterator
 import numpy as np
 from pylidarlib import PointCloud
+
+
+t_packet_stream = List[Tuple[float, bytes]] # (timestam, databuffer)
+
+
+@dataclass
+class HDL32eLaserFiring:
+        """
+        inputs are 1x32 arrays for data from a single HDL32e firing
+        contents are (32,) numpy arrays
+        """
+        azimuth: np.ndarray
+        distance: np.ndarray
+        intensity: np.ndarray
+
 
 class HDL32e:
     """
@@ -37,7 +54,7 @@ class HDL32e:
     PACKET_SIZE = 1248
 
     @staticmethod
-    def parse_data_packet(buffer):
+    def parse_data_packet(buffer: bytes):
         """
         Parses HDL32e strongest return mode data packet
         Fast parsing from
@@ -65,7 +82,7 @@ class HDL32e:
         return azimuth, distance, intensity
 
     @staticmethod
-    def yield_firings(buffer):
+    def yield_firings(buffer: bytes) -> Iterator[HDL32eLaserFiring]:
         """
         Generator for HDL32e lidar firings from data packets
         Only supports strongest return mode
@@ -80,14 +97,14 @@ class HDL32e:
             yield firing
 
     @staticmethod
-    def yield_clouds(packet_stream):
+    def yield_clouds(packet_stream: t_packet_stream) -> Iterator[PointCloud]:
         """
         Generator for point clouds from HDL32e pcap data
         packet stream
         """
         prev_azi = 0
-        firings_buffer = []
-        for _, packet in packet_stream:
+        firings_buffer: List[HDL32eLaserFiring] = []
+        for timestamp, packet in packet_stream:
             if len(packet) != HDL32e.PACKET_SIZE:
                 continue
 
@@ -108,7 +125,7 @@ class HDL32e:
         yield pc
 
     @staticmethod
-    def firings_to_xyzi(firings):
+    def firings_to_xyzi(firings: List[HDL32eLaserFiring]) -> np.ndarray:
         """
         converts list of HDL32eLaserFiring to xyzi nuy
         """
@@ -117,7 +134,7 @@ class HDL32e:
         for i, firing in enumerate(firings): 
             azi_rad = np.deg2rad(firing.azimuth)
             rcos_ele = firing.distance * HDL32e.ELE_ARRAY_COS
-    
+
             i_start = HDL32e.LASERS * i
             i_end = i_start + HDL32e.LASERS
             xyzi[i_start:i_end, 0] = rcos_ele * np.sin(azi_rad)
@@ -127,7 +144,7 @@ class HDL32e:
         return xyzi
 
     @staticmethod
-    def count_rotations(packet_stream, start_angle=0):
+    def count_rotations(packet_stream: t_packet_stream) -> int:
         """
         Counts full rotations (number of point clouds)
         of a HDL32e rounded up, new rotation is registered
@@ -137,26 +154,16 @@ class HDL32e:
         count = 1
         prev_max_azi = 0
 
-        for _, packet in packet_stream:
-            if len(packet) != 1248:
+        for timestamp, packet in packet_stream:
+            if len(packet) != HDL32e.PACKET_SIZE:
                 continue
             # use same binary parsing as in parse_data_packet()
             min_azi, max_azi = np.ndarray(
-                (2,), np.uint16, packet, 42+2, (1100,))
+                (2,), np.uint16, packet, HDL32e.HEADER_SIZE + 2, (1100,))
             if (max_azi < min_azi or prev_max_azi > min_azi):
                 count += 1
             prev_max_azi = max_azi
 
         return count
 
-
-class HDL32eLaserFiring:
-    def __init__(self, azimuth, distance, intensity):
-        """
-        inputs are 1x32 arrays for data from a single HDL32e firing
-        contents are (32,) numpy arrays
-        """
-        self.azimuth = azimuth
-        self.distance = distance
-        self.intensity = intensity
 

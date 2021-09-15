@@ -3,11 +3,10 @@ import unittest
 import itertools
 import numpy as np
 
-from pylidarlib import PointCloud
 from pylidarlib.io import HDL32e
 from test.testdoubles import HDL32ePcapDouble
 
-np.random.seed(seed=42)
+np.random.seed(seed=42) # deterministic tests
 
 
 class TestHDL32PcapIO(unittest.TestCase):

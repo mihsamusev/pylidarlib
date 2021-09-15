@@ -1,44 +1,43 @@
-import os
 import numpy as np
+
+
+def is_valid_numpy(arr: np.ndarray):
+    """
+    test if input has same numpy type and right size
+    """
+    out = False
+    if isinstance(arr, np.ndarray):
+        out = arr.shape[1] == 4
+    return out
 
 
 class PointCloud:
     """
     Point could containing XYZI data
     """
-    def __init__(self, capacity=32768):
+    def __init__(self, capacity: np.uint=32768):
         self.capacity = capacity
         self.size = 0
         self._data = np.zeros((self.capacity, 4))
 
     @property
-    def data(self):
+    def data(self) -> np.ndarray:
         return self._data[:self.size]
 
     @property
-    def xyz(self):
+    def xyz(self) -> np.ndarray:
         return self._data[:self.size, :3]
 
     @property
-    def intensity(self):
+    def intensity(self) -> np.ndarray:
         return self._data[:self.size, 3:4]
 
     @staticmethod
-    def is_valid_numpy(arr):
-        """
-        test if input has same numpy type and right size
-        """
-        out = False
-        if isinstance(arr, np.ndarray):
-            out = arr.shape[1] == 4
-        return out
-
-    @staticmethod
-    def from_numpy(arr, **kwargs):
+    def from_numpy(arr: np.ndarray, **kwargs):
         """
         Constructs a PointCloud using [N x 4] numpy array
         """
-        if PointCloud.is_valid_numpy(arr):
+        if is_valid_numpy(arr):
             pc = PointCloud(**kwargs)
             pc.extend(arr)
             return pc
@@ -46,7 +45,7 @@ class PointCloud:
             raise ValueError(
                 "Input array should be 'numpy.ndarray' of size [N x 4]")
 
-    def extend(self, arr):
+    def extend(self, arr: np.ndarray):
         """
         Extends the _data array with a [N x 4] numpy array
         """

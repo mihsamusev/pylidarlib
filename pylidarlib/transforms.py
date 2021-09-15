@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as ScipyRotation
 from skimage.measure import points_in_poly
+from sklearn.neighbors import BallTree
 
 from pylidarlib import PointCloud
 
@@ -9,7 +10,7 @@ class Compose:
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def apply(self, pc):
+    def apply(self, pc: PointCloud):
         for t in self.transforms:
             pc = t.apply(pc)
         return pc
@@ -21,7 +22,7 @@ class Translate:
         self.y = y
         self.z = z
 
-    def apply(self, pc):
+    def apply(self, pc: PointCloud):
         """translate .xyz of the point cloud, this
         implementation creates outputs
         """
@@ -43,7 +44,7 @@ class CartesianClip:
         self.z_range = z_range
         self.inverse = inverse
 
-    def apply(self, pc):
+    def apply(self, pc: PointCloud):
         """
         Points that lay right at the boundary are not included
         """
@@ -62,7 +63,7 @@ class CartesianClip:
             capacity=new_data.shape[0])
 
 
-class PolygonClip:
+class PolygonCrop:
     def __init__(
             self,
             polygon,
@@ -72,7 +73,7 @@ class PolygonClip:
         self.z_range = z_range
         self.inverse = inverse
 
-    def apply(self, pc):
+    def apply(self, pc: PointCloud):
         """
         Clip the point cloud outside the given polygon
         """
@@ -107,7 +108,7 @@ class AxisRotate:
         qx, qy, qz = np.sin(self.angle / 2) * self.axis
         return ScipyRotation.from_quat([qx, qy, qz, qw])
 
-    def apply(self, pc):
+    def apply(self, pc: PointCloud):
         """
         Rotate around axis using quaternion
         """
@@ -117,3 +118,29 @@ class AxisRotate:
         return PointCloud.from_numpy(
             new_data,
             capacity=new_data.shape[0])
+
+
+class CloudSubtractor:
+    def __init__(self, subtracted: PointCloud, radius: float=0.2, leaf_size: np.uint=10):
+        if subtracted.size == 0:
+            raise ValueError("Cant use empty point cloud for subtraction.")
+        if radius <= 0:
+            raise ValueError("Cant use nonpositive KD-tree search radius.")
+
+        self.subtracted_kdtree = BallTree(subtracted.xyz, leaf_size)
+        self.radius = radius
+
+    def apply(self, pc: PointCloud):
+        if pc.size == 0:
+            return pc
+
+        intersection_count = self.subtracted_kdtree.query_radius(
+            pc.xyz,
+            r=self.radius,
+            count_only=True
+        )
+        new_data = pc.data[intersection_count==0, :]
+        return PointCloud.from_numpy(
+            new_data,
+            capacity=new_data.shape[0]
+            )
