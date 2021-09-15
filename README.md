@@ -23,7 +23,7 @@ pipeline = PT.Compose([
         axis=[0, 0, 1],
         angle=0.7070
         ),
-    PT.PolygonClip(polygon=[
+    PT.PolygonCrop(polygon=[
             [0.0, -10.0],
             [-4.0, 0.0],
             [-4.0, 5.0],
